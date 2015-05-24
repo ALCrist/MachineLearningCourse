@@ -1,0 +1,167 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Machinelearningcourse by ALCrist</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Machinelearningcourse</h1>
+        <p>Course work for Johns Hopkins Machine Learning Coursera Course</p>
+
+        <p class="view"><a href="https://github.com/ALCrist/MachineLearningCourse">View the Project on GitHub <small>ALCrist/MachineLearningCourse</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/ALCrist/MachineLearningCourse/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/ALCrist/MachineLearningCourse/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/ALCrist/MachineLearningCourse">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <hr>
+
+<p>title: "Weight Lifting Predictions"
+author: "Annette Crist"
+date: "Friday, May 22, 2015"
+output:
+  html_document:
+    highlight: espresso</p>
+
+<h2>
+<a id="----theme-journal" class="anchor" href="#----theme-journal" aria-hidden="true"><span class="octicon octicon-link"></span></a>    theme: journal</h2>
+
+<h2>
+<a id="executive-summary" class="anchor" href="#executive-summary" aria-hidden="true"><span class="octicon octicon-link"></span></a>Executive Summary</h2>
+
+<p>In their research on qualitative activity recognition, Eduardo Velloso, Andreas Bulling, Hans Gellersen, Wallace Ugulino, and Hugo Fuks used four types of wearable devices to collect data on subjects performing dumbbell lifts.  The purpose of the research was to predict how well the subject performed the activity based on the collected data.  They made the data collected for this research available for public use which was used as the basis for my work to create a model to accurately predict the quality of dumbbell lifts. </p>
+
+<p>This paper outlines the process I used to create a model with 98.84% accuracy in predicting the classification of 20 unilateral dumbbell bicep curls  using the data from the <strong>Qualitative Activity Recognition of Weight Lifting Exercises</strong> research by Velloso, Bulling, Gellersen,Ugulino and Fuks.  </p>
+
+<h2>
+<a id="model-design-overview" class="anchor" href="#model-design-overview" aria-hidden="true"><span class="octicon octicon-link"></span></a>Model Design Overview</h2>
+
+<p>Can a computer identify the quality of a unilateral dumbbell bicep curl based on sensor data?  To answer this question, data collected in the study:  <strong>Qualitative Activity Recognition of Weight Lifting Exercises</strong> was used to create a random forest model using R.  A total of 160 variables existed in the data set.  The classe variable was used as the variable for which the algorithm generated predictions.  A description of the classe values is listed below.</p>
+
+<table>
+<thead>
+<tr>
+<th>Class</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A</td>
+<td>Correct Execution</td>
+</tr>
+<tr>
+<td>B</td>
+<td>Throwing elbow to the front</td>
+</tr>
+<tr>
+<td>C</td>
+<td>Lifting dumbbell halfway</td>
+</tr>
+<tr>
+<td>D</td>
+<td>Lowering dumbbell halfway</td>
+</tr>
+<tr>
+<td>E</td>
+<td>Throwing hips to the front</td>
+</tr>
+</tbody>
+</table>
+
+<p>From the remaining 159 available variables, 52 were selected as predictor variables.  The 52 variables consisted of 13 measures for each of the 4 sensors: belt, arm, glove and dumbbell.  The 13 measures include three Euler angle readings (roll, pitch, yaw) and 10 raw measures from the accelerometer, gyroscope and magnetometer.  These variables were selected based on the quality of data (no missing values) as well as their apparent relevance to the question at hand.  Since the question is qualitative and not time-based, all date and time variables were ignored.  Additionally to eliminate any correlation between the person performing the activity and the measure, the user_name field was not considered.</p>
+
+<p>The data were split into 2 sets, one for training the model and one for testing the model using a 60-40 ratio of training data to testing.  Before settling on the final random forest model, several regression and classification trees models were tried with and without PCA variables.  The final model chosen was a random forest model using a cross validation method on the raw measures.  </p>
+
+<div class="highlight highlight-r"><pre><span class="pl-c">## Main Model Script</span>
+<span class="pl-c">## </span>
+library(<span class="pl-smi">caret</span>)
+library(<span class="pl-smi">ggplot2</span>)
+setwd(<span class="pl-s"><span class="pl-pds">"</span>~/.<span class="pl-pds">"</span></span>)
+set.seed(<span class="pl-c1">5761</span>)
+<span class="pl-k">if</span>(<span class="pl-k">!</span>file.exists(<span class="pl-s"><span class="pl-pds">"</span>./traindata<span class="pl-pds">"</span></span>)){
+    <span class="pl-smi">train_url</span> <span class="pl-k">&lt;-</span> <span class="pl-s"><span class="pl-pds">"</span>https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv <span class="pl-pds">"</span></span>    
+    dir.create(<span class="pl-s"><span class="pl-pds">"</span>traindata<span class="pl-pds">"</span></span>, <span class="pl-v">recursive</span><span class="pl-k">=</span><span class="pl-c1">FALSE</span>,<span class="pl-v">showWarnings</span><span class="pl-k">=</span><span class="pl-c1">TRUE</span>)
+    download.file(<span class="pl-smi">train_url</span>, <span class="pl-v">destfile</span> <span class="pl-k">=</span> <span class="pl-s"><span class="pl-pds">"</span>./traindata/train_dataset.csv<span class="pl-pds">"</span></span>)
+    <span class="pl-smi">dateDownloaded</span> <span class="pl-k">&lt;-</span> date()
+}
+
+
+
+
+<span class="pl-smi">traindata</span> <span class="pl-k">&lt;-</span> read.csv(<span class="pl-s"><span class="pl-pds">"</span>~/traindata/train_dataset.csv<span class="pl-pds">"</span></span>,
+                      <span class="pl-v">na.strings</span> <span class="pl-k">=</span> c(<span class="pl-s"><span class="pl-pds">"</span>#DIV/0!<span class="pl-pds">"</span></span>, <span class="pl-s"><span class="pl-pds">"</span> <span class="pl-pds">"</span></span>,<span class="pl-s"><span class="pl-pds">"</span>NA<span class="pl-pds">"</span></span>), <span class="pl-v">stringsAsFactors</span><span class="pl-k">=</span><span class="pl-c1">TRUE</span>)
+
+<span class="pl-smi">cleanTrainData</span> <span class="pl-k">&lt;-</span> as.data.frame(<span class="pl-smi">traindata</span>[,<span class="pl-k">-</span>which(colSums(is.na(<span class="pl-smi">traindata</span>))<span class="pl-k">&gt;</span><span class="pl-c1">0</span>)])
+<span class="pl-smi">cleanTrainData</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">cleanTrainData</span>[,<span class="pl-c1">8</span><span class="pl-k">:</span><span class="pl-c1">60</span>]
+<span class="pl-smi">cleanTrainData</span><span class="pl-k">$</span><span class="pl-smi">classe</span> <span class="pl-k">&lt;-</span> as.factor(<span class="pl-smi">cleanTrainData</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)
+<span class="pl-smi">InTraining</span> <span class="pl-k">&lt;-</span> createDataPartition(<span class="pl-v">y</span><span class="pl-k">=</span><span class="pl-smi">cleanTrainData</span><span class="pl-k">$</span><span class="pl-smi">classe</span>, <span class="pl-v">p</span><span class="pl-k">=</span>.<span class="pl-c1">6</span>, <span class="pl-v">list</span><span class="pl-k">=</span><span class="pl-c1">FALSE</span>)
+<span class="pl-smi">TrainSet</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">cleanTrainData</span>[<span class="pl-smi">InTraining</span>,]
+<span class="pl-smi">TestSet</span> <span class="pl-k">&lt;-</span> <span class="pl-smi">cleanTrainData</span>[<span class="pl-k">-</span><span class="pl-smi">InTraining</span>,]
+</pre></div>
+
+<div class="highlight highlight-r"><pre>
+<span class="pl-smi">trnCtl</span> <span class="pl-k">&lt;-</span> trainControl(<span class="pl-v">method</span><span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>cv<span class="pl-pds">"</span></span>)
+<span class="pl-smi">model4</span> <span class="pl-k">&lt;-</span> train(as.factor(<span class="pl-smi">TrainSet</span><span class="pl-k">$</span><span class="pl-smi">classe</span>) <span class="pl-k">~</span>., <span class="pl-v">data</span><span class="pl-k">=</span><span class="pl-smi">TrainSet</span>, 
+                <span class="pl-v">method</span><span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>rf<span class="pl-pds">"</span></span>, <span class="pl-v">trControl</span><span class="pl-k">=</span> <span class="pl-smi">trnCtl</span>)
+</pre></div>
+
+<p>This model produced a 100% in-sample accuracy rate as seen below. </p>
+
+<div class="highlight highlight-r"><pre>
+
+<span class="pl-smi">Trainpredictions4</span> <span class="pl-k">&lt;-</span> predict(<span class="pl-smi">model4</span>, <span class="pl-smi">TrainSet</span>)
+confusionMatrix(<span class="pl-smi">Trainpredictions4</span>, <span class="pl-smi">TrainSet</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)
+</pre></div>
+
+<p>Next, the model was run against the testing data set.  The out-of-sample accuracy rate was 98.84% as seen below and produced a 100% accuracy rate when applied to the 20 validation tests.</p>
+
+<div class="highlight highlight-r"><pre>
+<span class="pl-smi">Testpredictions4</span> <span class="pl-k">&lt;-</span> predict(<span class="pl-smi">model4</span>, <span class="pl-smi">TestSet</span>)
+confusionMatrix(<span class="pl-smi">Testpredictions4</span>, <span class="pl-smi">TestSet</span><span class="pl-k">$</span><span class="pl-smi">classe</span>)
+</pre></div>
+
+<h2>
+<a id="conclusion" class="anchor" href="#conclusion" aria-hidden="true"><span class="octicon octicon-link"></span></a>Conclusion</h2>
+
+<p>Random forest models are accurate in predicting classification variables.  However, they can be computationally intensive and take a long time to run.  Appendix A shows that the error rate approached 0% within 50 - 100 trees. </p>
+
+<h2>
+<a id="appendix-a" class="anchor" href="#appendix-a" aria-hidden="true"><span class="octicon octicon-link"></span></a>Appendix A</h2>
+
+<div class="highlight highlight-r"><pre>
+plot(<span class="pl-smi">model4</span><span class="pl-k">$</span><span class="pl-smi">finalModel</span>, <span class="pl-v">main</span><span class="pl-k">=</span><span class="pl-s"><span class="pl-pds">"</span>Final Model Error Rate Estimations<span class="pl-pds">"</span></span>)
+</pre></div>
+
+<h3>
+<a id="reference" class="anchor" href="#reference" aria-hidden="true"><span class="octicon octicon-link"></span></a>Reference</h3>
+
+<p>The data used in this paper comes from the following research:</p>
+
+<p>Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6. </p>
+
+<p>Read more: <a href="http://groupware.les.inf.puc-rio.br/har#sbia_paper_section#ixzz3b3SnEPb3">http://groupware.les.inf.puc-rio.br/har#sbia_paper_section#ixzz3b3SnEPb3</a></p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/ALCrist">ALCrist</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
