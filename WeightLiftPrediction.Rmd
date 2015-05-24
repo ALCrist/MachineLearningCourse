@@ -1,0 +1,115 @@
+---
+title: "Weight Lifting Predictions"
+author: "Annette Crist"
+date: "Friday, May 22, 2015"
+output:
+  html_document:
+    highlight: espresso
+    theme: journal
+---
+
+## Executive Summary
+
+In their research on qualitative activity recognition, Eduardo Velloso, Andreas Bulling, Hans Gellersen, Wallace Ugulino, and Hugo Fuks used four types of wearable devices to collect data on subjects performing dumbbell lifts.  The purpose of the research was to predict how well the subject performed the activity based on the collected data.  They made the data collected for this research available for public use which was used as the basis for my work to create a model to accurately predict the quality of dumbbell lifts. 
+
+This paper outlines the process I used to create a model with 98.84% accuracy in predicting the classification of 20 unilateral dumbbell bicep curls  using the data from the **Qualitative Activity Recognition of Weight Lifting Exercises** research by Velloso, Bulling, Gellersen,Ugulino and Fuks.  
+
+
+
+## Model Design Overview
+
+Can a computer identify the quality of a unilateral dumbbell bicep curl based on sensor data?  To answer this question, data collected in the study:  **Qualitative Activity Recognition of Weight Lifting Exercises** was used to create a random forest model using R.  A total of 160 variables existed in the data set.  The classe variable was used as the variable for which the algorithm generated predictions.  A description of the classe values is listed below.
+
+Class  | Description                  
+------ | -----------                  
+  A    | Correct Execution            
+  B    | Throwing elbow to the front   
+  C    | Lifting dumbbell halfway     
+  D    | Lowering dumbbell halfway    
+  E    | Throwing hips to the front   
+
+
+
+From the remaining 159 available variables, 52 were selected as predictor variables.  The 52 variables consisted of 13 measures for each of the 4 sensors: belt, arm, glove and dumbbell.  The 13 measures include three Euler angle readings (roll, pitch, yaw) and 10 raw measures from the accelerometer, gyroscope and magnetometer.  These variables were selected based on the quality of data (no missing values) as well as their apparent relevance to the question at hand.  Since the question is qualitative and not time-based, all date and time variables were ignored.  Additionally to eliminate any correlation between the person performing the activity and the measure, the user_name field was not considered.
+
+The data were split into 2 sets, one for training the model and one for testing the model using a 60-40 ratio of training data to testing.  Before settling on the final random forest model, several regression and classification trees models were tried with and without PCA variables.  The final model chosen was a random forest model using a cross validation method on the raw measures.  
+
+```{r Main,echo=FALSE, error=FALSE, message=FALSE, warning=FALSE}
+## Main Model Script
+## 
+library(caret)
+library(ggplot2)
+setwd("~/.")
+set.seed(5761)
+if(!file.exists("./traindata")){
+    train_url <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv "    
+    dir.create("traindata", recursive=FALSE,showWarnings=TRUE)
+    download.file(train_url, destfile = "./traindata/train_dataset.csv")
+    dateDownloaded <- date()
+}
+    
+
+
+
+traindata <- read.csv("~/traindata/train_dataset.csv",
+                      na.strings = c("#DIV/0!", " ","NA"), stringsAsFactors=TRUE)
+
+cleanTrainData <- as.data.frame(traindata[,-which(colSums(is.na(traindata))>0)])
+cleanTrainData <- cleanTrainData[,8:60]
+cleanTrainData$classe <- as.factor(cleanTrainData$classe)
+InTraining <- createDataPartition(y=cleanTrainData$classe, p=.6, list=FALSE)
+TrainSet <- cleanTrainData[InTraining,]
+TestSet <- cleanTrainData[-InTraining,]
+
+```
+
+```{r Model, echo=FALSE, error=FALSE, message=FALSE, warning=FALSE}
+
+trnCtl <- trainControl(method="cv")
+model4 <- train(as.factor(TrainSet$classe) ~., data=TrainSet, 
+                method="rf", trControl= trnCtl)
+
+```
+
+This model produced a 100% in-sample accuracy rate as seen below. 
+
+```{r TrainPredict, echo=FALSE, error=FALSE, message=FALSE, warning=FALSE}
+
+
+Trainpredictions4 <- predict(model4, TrainSet)
+confusionMatrix(Trainpredictions4, TrainSet$classe)
+
+```
+
+Next, the model was run against the testing data set.  The out-of-sample accuracy rate was 98.84% as seen below and produced a 100% accuracy rate when applied to the 20 validation tests.
+
+
+```{r TestPredict, echo=FALSE, error=FALSE, message=FALSE, warning=FALSE}
+
+Testpredictions4 <- predict(model4, TestSet)
+confusionMatrix(Testpredictions4, TestSet$classe)
+
+```
+
+## Conclusion
+
+Random forest models are accurate in predicting classification variables.  However, they can be computationally intensive and take a long time to run.  Appendix A shows that the error rate approached 0% within 50 - 100 trees. 
+
+## Appendix A
+
+```{r FinalModelErrorRate, echo=FALSE, warning=FALSE, message=FALSE,fig.height=4,fig.width=4 }
+
+plot(model4$finalModel, main="Final Model Error Rate Estimations")
+
+```
+
+###  Reference
+
+The data used in this paper comes from the following research:
+
+Ugulino, W.; Cardador, D.; Vega, K.; Velloso, E.; Milidiu, R.; Fuks, H. Wearable Computing: Accelerometers' Data Classification of Body Postures and Movements. Proceedings of 21st Brazilian Symposium on Artificial Intelligence. Advances in Artificial Intelligence - SBIA 2012. In: Lecture Notes in Computer Science. , pp. 52-61. Curitiba, PR: Springer Berlin / Heidelberg, 2012. ISBN 978-3-642-34458-9. DOI: 10.1007/978-3-642-34459-6_6. 
+
+
+Read more: http://groupware.les.inf.puc-rio.br/har#sbia_paper_section#ixzz3b3SnEPb3
+
+
